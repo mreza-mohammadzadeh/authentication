@@ -1,0 +1,10 @@
+env/
+build/
+dist/
+media/
+*/__pycache__/
+*.pyc
+.idea/
+static
+pyc/Users
+*/migrations
