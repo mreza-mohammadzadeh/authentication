@@ -2,6 +2,8 @@ from django.db import models
 from django.contrib.auth.models import BaseUserManager, AbstractBaseUser, PermissionsMixin
 from datetime import timedelta
 from django.utils import timezone
+
+from utils.convert_number import persian_to_english_number
 from utils.kavenegar import send_sms
 
 
@@ -57,31 +59,34 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Verify(models.Model):
     phone_number = models.CharField(max_length=20, unique=True, verbose_name='phone_number')
-    code = models.CharField(max_length=4, verbose_name='code')
+    code = models.CharField(max_length=6, verbose_name='code')
     count_wrong = models.IntegerField(default=0)
     created_time = models.DateTimeField(auto_now_add=True, verbose_name="created_time")
     modified_time = models.DateTimeField(auto_now=True, verbose_name="modified_time")
 
     @classmethod
     def create_verify(cls, request, code):
+        phone_number_en = persian_to_english_number(request.data['phone_number'])
         try:
-            verify = cls.objects.get(phone_number=request.data['phone_number'])
+            verify = cls.objects.get(phone_number=phone_number_en)
             if timezone.now() < verify.modified_time + timedelta(minutes=2):
                 return verify, 'sent', 'sent'
             verify.code = code
             verify.save()
-            response_sms = send_sms(request.data['phone_number'], 'verifyLogin', code, '', '')
+            response_sms = send_sms(phone_number_en, 'verifyLogin', code, '', '')
             return verify, response_sms, 'created'
         except Verify.DoesNotExist:
-            verify_create = cls.objects.create(phone=request.data['phone_number'], code=code)
-            response_sms = send_sms(request.data['phone_number'], 'verifyLogin', code, '', '')
+            verify_create = cls.objects.create(phone_number=phone_number_en, code=code)
+            response_sms = send_sms(phone_number_en, 'verifyLogin', code, '', '')
             return verify_create, response_sms, 'created'
 
     @classmethod
     def check_verify(cls, request):
+        phone_number_en = persian_to_english_number(request.data['phone_number'])
+        code_en = persian_to_english_number(request.data['code'])
         try:
-            verify = cls.objects.get(phone=request.data['phone_number'])
-            if verify.code == request.data['code']:
+            verify = cls.objects.get(phone_number=phone_number_en)
+            if verify.code == code_en:
                 if timezone.now() < verify.modified_time + timedelta(minutes=2):
                     verify.delete()
                     return 'verify'
